@@ -209,7 +209,7 @@ There are 25 tests in `tests/test_recommender.py` (the starter OOP tests) and `t
 
 ## Sample Recommendation Output
 
-Real output of `python -m src.main` (default profile, balanced mode, diversity ON). The "Why" column lists every point the song earned and any diversity penalty:
+Real output of `python -m src.main` (default profile, balanced mode, diversity ON), shown in the plain-Python summary table (Challenge 4). The "Why" column lists every point the song earned and any diversity penalty:
 
 ```text
 $ python -m src.main
@@ -510,8 +510,6 @@ More detail is in the [model card](model_card.md).
 
 Read the full [**Model Card**](model_card.md).
 
-> **DRAFT for the student to review and personalize.** This was written by the AI assistant from the engineering work done in this repository. It does not describe the student's personal experience. Please rewrite it in your own words.
+This project showed me that a content-based recommender is mostly arithmetic on song attributes. VibeMatch gives points for matching labels (genre +2.0, mood +1.0) and for being *close* to numeric targets like energy, and the "recommendation" is whatever scores highest. Every point is a weight someone picked by hand, so changing the weights changes the results without any new data. Switching to `energy-focused` mode moved the sad-but-high-energy profile's #1 from *Paper Boats* to *Iron Cathedral*. Real platforms also learn from the behavior of millions of other users, which this simulation doesn't do at all.
 
-Building this showed how a recommender turns data into "predictions." It is really just arithmetic on features. Each song gets points for matching labels and for being *close* to numeric targets, and the "recommendation" is whatever scores highest. The output looks smart because the explanation lists the reasons, but every reason is a weight someone chose by hand. Changing one weight (energy ×2) reordered several lists without any new data.
-
-Bias shows up in quiet ways. The catalog has 4 lofi songs but only one rock, metal, folk or classical song, so a rock fan gets one real match and four songs that are only "high energy." Exact text matching means a "k-pop" fan gets no genre credit at all. A diversity penalty helps with repetition, but it cannot add songs that are not in the catalog. Real systems with millions of users face the same problems at a much larger scale.
+Bias shows up in quiet ways. Lofi has 4 songs, but 11 of the 15 genres have only one, so the rock profile got one rock song and then an indie pop and a hip hop song just because their energy was close. The diversity penalty helps with repetition (Chill Lofi went from 4 lofi songs to 3, plus an ambient and a folk song), but it can't add songs the catalog doesn't have. The code was generated with an AI coding agent. Running the tests mattered: one AI-written test had the wrong expectation and failed, and it was the test that needed fixing, not the code. My longer reflection is in [section 9 of the model card](model_card.md#9-personal-reflection).
