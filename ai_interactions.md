@@ -76,7 +76,12 @@ Commands the agent ran included `python -m src.main` with every flag, `python -m
 | README / model card text and evaluation findings | output blocks inserted by script from real runs; numbers and overlaps re-computed by script |
 | Reflection text | written from the project results; personal parts are marked for the student |
 
-**Student's own checks and decisions:** **[Personalize: add anything you reviewed, ran, questioned or changed yourself.]**
+**Student's own decisions (from the conversation):**
+
+- Set the requirements and rules in the master prompt: complete every phase and all four challenges, use only real program output, label generated data as simulated, and don't invent personal reflections.
+- Chose to push the project to their own repository (`Zyokoji/...`) rather than the CodePath starter.
+- Asked for the reflection and this log to keep AI-generated work separate from verification, and to mark personal details instead of inventing them.
+- Planned to review the final answers after the agent finished.
 
 ---
 
