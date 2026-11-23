@@ -161,6 +161,12 @@ def test_workflow_respects_exclusions():
     assert all(r["song"]["genre"] != "lofi" for r in result.recommendations)
 
 
+def test_excluded_genre_is_not_offered_as_related_genre():
+    result = WORKFLOW.run("no lofi, just chill jazz", k=3)
+    assert "lofi" not in result.prefs.get("related_genres", [])
+    assert all(r["song"]["genre"] != "lofi" for r in result.recommendations)
+
+
 def test_workflow_unknown_genre_falls_back_and_caps_confidence():
     result = WORKFLOW.run("k-pop dance hits", k=5)
     assert any("not in the catalog" in w for w in result.warnings)

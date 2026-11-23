@@ -142,7 +142,8 @@ class RecommendationWorkflow:
             prefs[key] = value  # the user's own words beat retrieved defaults
             sources[key] = "your words"
         if use_retrieval and parsed.genre:
-            related = self.knowledge.related_in_catalog(parsed.genre)
+            related = [g for g in self.knowledge.related_in_catalog(parsed.genre)
+                       if g not in parsed.exclude_genres]  # never suggest a genre the user ruled out
             if related:
                 prefs["related_genres"] = related
                 sources["related_genres"] = f"genre notes for {parsed.genre}"
