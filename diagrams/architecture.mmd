@@ -1,0 +1,42 @@
+flowchart TD
+    U["User request<br/>plain English, e.g. 'calm lofi for studying'"] --> APP["src/app.py<br/>CLI and interactive prompt"]
+
+    subgraph DATA["Data and knowledge base"]
+        SONGS[("data/songs.csv<br/>20 simulated songs")]
+        GENRES[("data/genre_notes.json<br/>aliases, related genres")]
+        ACTS[("data/activity_contexts.json<br/>study, workout, sleep ...")]
+    end
+
+    subgraph WF["src/workflow.py: 8-step recommendation workflow"]
+        S1["1 validate<br/>guardrails.py input checks"] --> S2["2 parse<br/>query_parser.py keywords"]
+        S2 --> S3["3 retrieve<br/>retrieval.py TF-IDF search"]
+        S3 --> S4["4 build_prefs<br/>merge context + user words<br/>add related genres"]
+        S4 --> S5["5 constrain<br/>remove excluded genres"]
+        S5 --> S6["6 rank<br/>recommender.py score_song + rank_songs<br/>scoring mode + diversity penalty"]
+        S6 --> S7["7 self_check<br/>output guardrails + confidence"]
+        S7 --> S8["8 explain<br/>reasons + one-line summary"]
+    end
+
+    APP --> S1
+    SONGS --> S3
+    GENRES --> S2
+    GENRES --> S3
+    ACTS --> S3
+    SONGS --> S5
+    S1 -- "rejected: GuardrailError" --> REJ["Clear error message<br/>exit code 2"]
+    S8 --> OUT["Output table<br/>songs, scores, reasons, confidence,<br/>warnings, optional trace"]
+
+    S1 -.-> LOG[("logs/vibematch.log<br/>logging_setup.py")]
+    S7 -.-> LOG
+
+    subgraph EVAL["Evaluation and testing"]
+        CASES[("evaluation/cases.json<br/>24 predefined cases")] --> HARNESS["evaluation/run_eval.py"]
+        HARNESS -- "use_retrieval=True" --> WFRUN["AI workflow"]
+        HARNESS -- "use_retrieval=False" --> BASE["Keyword-only baseline"]
+        WFRUN --> REPORT["Pass/fail report<br/>results.json + assets/eval_results.svg"]
+        BASE --> REPORT
+        TESTS["tests/ (pytest)<br/>unit, guardrail, edge, CLI tests"]
+    end
+
+    HARNESS -. "runs" .-> WF
+    TESTS -. "checks" .-> WF

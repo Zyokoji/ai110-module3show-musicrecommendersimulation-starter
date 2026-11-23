@@ -1,5 +1,197 @@
 # AI Interactions Log
 
+This file has two parts:
+1. **Final project (Applied AI System)**: how VibeMatch 2.0 was built with an AI coding agent, including real workflow traces.
+2. **Module 3**: the original log, kept unchanged below.
+
+---
+
+# Part 1: Final project (Applied AI System)
+
+## Who did what
+
+- **Student:** wrote the requirements and constraints for the final project, chose to keep commits local (no push without approval), and asked for honest labelling of rule-based logic and no invented results. **[Personalize: add anything you reviewed, tested or decided yourself.]**
+- **AI coding agent (Claude Code in VS Code):** inspected the repository, wrote all new code, data files, tests and documentation, and ran the app, the tests and the evaluation harness to check its work.
+- **No external AI service is used *inside* the project.** No API key was available, so every AI feature runs locally (TF-IDF retrieval, rule-based parsing, a fixed workflow).
+
+## Prompt used (excerpts, quoted verbatim)
+
+> "Turn my music recommender into a smarter, more reliable recommendation system that explains its recommendations and evaluates their quality."
+
+> "Integrate at least one meaningful AI feature, such as retrieval, an agentic workflow, or a reliability system. It must affect how recommendations are generated, not just exist as a separate script."
+
+> "If a feature requires an unavailable API key or external service, use a practical local alternative where possible and document any limitations. Do not pretend a rule-based algorithm is a trained AI model."
+
+> "Make multiple meaningful local Git commits as you complete major stages, but do not push to GitHub or change the remote repository without my approval."
+
+This was one long prompt; no other prompts were used for the final-project build.
+
+## Key decisions made during the build
+
+| Decision | Reasoning | Verified by |
+|---|---|---|
+| Local TF-IDF retrieval instead of an LLM | No API key; deterministic, testable, explainable | Baseline comparison: workflow 16/17 vs baseline 10/17 on quality + edge cases |
+| Retrieval changes scores in 3 ways (context preferences, related genres, "matches your words" points) | Requirement: the AI feature must affect recommendations | Example outputs; `test_baseline_skips_retrieval_and_differs` |
+| Reuse Module 3 `score_song` / `rank_songs` instead of a new scorer | No duplicated logic; Module 3 behaviour stays the same | The 25 Module 3 tests still pass unchanged |
+| Fixed 8-step workflow with a recorded trace | Every decision is visible and testable | `--trace` output (below); `test_workflow_normal_request_with_full_trace` |
+| Confidence = top score ÷ best possible score; capped at "medium" for a genre missing from the catalog | Simple, explainable, avoids overclaiming | Case E1 (k-pop) |
+| Never recommend songs with a score of 0 | No "recommendation" without a reason | Baseline returning 1–2 songs in the evaluation shows this working |
+| Keep the failing case Q12 as a known limitation | Honest evaluation over a perfect score | Brute-force check: 0 of 15,504 five-song sets can meet it |
+| Removed unused `pandas` and `streamlit` from requirements | Fewer dependencies; nothing imported them | `grep` found no imports; all tests pass |
+
+## Corrections made after verification
+
+1. **Parser rules (found by reviewing the rules before running).** "love" → romantic and "down" → sad would misread "I love jazz" and "wind down". A 3-word negation window would make "no lofi, just jazz" exclude jazz too. The two words were removed, the window was shortened to 2 words, and a test was added.
+2. **Duplicate rejection messages (found by running the CLI).** Rejections were printed twice, once by the logger's console handler and once by the app. The console now shows only errors (INFO with `--verbose`), and everything is still written to the log file.
+3. **Wrong test expectation (found by running the tests).** A new test assumed the k-pop request's top 3 would be only pop/edm. With the diversity penalty on, *Rooftop Lights* (indie pop) is #3. The code was right, and the test now checks the top 2.
+4. **Evaluation case Q12 failed (found by the harness).** Instead of loosening the expectation, the agent checked all 15,504 five-song combinations, found that none could pass, and labelled the case a known limitation. It still counts as a FAIL.
+5. **Inconsistent trace (found by reading a real trace).** For "no lofi, just chill jazz", the trace listed lofi as a *related genre* even though lofi was excluded. The results were not affected (lofi songs are removed in step 5), but the trace contradicted itself. Excluded genres are now filtered out of the related list, and `test_excluded_genre_is_not_offered_as_related_genre` was added.
+6. **A claim in the model card was narrowed after checking the data.** "Workout favors pop and edm" became "pop, edm and rock", because the rock song is also fast and high-energy.
+
+## Blocked action
+
+The agent tried to render `diagrams/architecture.mmd` with the Mermaid CLI (`npx @mermaid-js/mermaid-cli`) to check its syntax and save an image to `assets/`. Downloading that package was **denied by the permission system**, and the agent did not try to work around it. The diagram was checked by hand against Mermaid flowchart syntax, and the same diagram is embedded in the README so GitHub renders it.
+
+## Agentic workflow traces (real output)
+
+The workflow is a **fixed** sequence of steps. A language model does not choose the steps, but every intermediate decision is recorded. Two real traces:
+
+**Unknown genre, falling back to related genres:**
+
+```text
+$ python -m src.app "k-pop dance hits" -k 3 --trace
+Loaded 20 songs and 11 activity contexts.
+
+=== AI workflow (retrieval + self-check) ===
+Request    : k-pop dance hits
+Context    : party
+Using      : energy=0.85, danceability=0.88, valence=0.8, mood_tags=['party', 'euphoric', 'carefree'], related_genres=['pop', 'edm']
+Confidence : 0.88 (medium)
+Note       : 'k-pop' is not in the catalog; using related genres pop, edm instead.
++----+------------------------+--------------+--------------+----------------------------------------------------------------+
+| #  | Song                   | Genre / Mood | Score        | Why (points earned)                                            |
++====+========================+==============+==============+================================================================+
+| 1  | Pulse Reactor          | edm          | 4.86         | related genre: edm (+1.00)                                     |
+|    | by Max Pulse           | euphoric     |              | mood tags party, euphoric (2/3) (+0.67)                        |
+|    |                        |              |              | energy 0.95 vs target 0.85 (90% similar) (+1.35)               |
+|    |                        |              |              | valence 0.8 vs target 0.8 (100% similar) (+0.50)               |
+|    |                        |              |              | danceability 0.92 vs target 0.88 (96% similar) (+0.48)         |
+|    |                        |              |              | matches your words: dance (+0.86)                              |
++----+------------------------+--------------+--------------+----------------------------------------------------------------+
+| 2  | Bubblegum Skies        | pop          | 4.68         | related genre: pop (+1.00)                                     |
+|    | by Neon Echo           | happy        |              | mood tags party, carefree (2/3) (+0.67)                        |
+|    |                        |              |              | energy 0.85 vs target 0.85 (100% similar) (+1.50)              |
+|    |                        |              |              | valence 0.9 vs target 0.8 (90% similar) (+0.45)                |
+|    |                        |              |              | danceability 0.84 vs target 0.88 (96% similar) (+0.48)         |
+|    |                        |              |              | matches your words: pop (+0.58)                                |
++----+------------------------+--------------+--------------+----------------------------------------------------------------+
+| 3  | Rooftop Lights         | indie pop    | 3.65         | mood tags carefree (1/3) (+0.33)                               |
+|    | by Indigo Parade       | happy        |              | energy 0.76 vs target 0.85 (91% similar) (+1.36)               |
+|    |                        |              |              | valence 0.81 vs target 0.8 (99% similar) (+0.49)               |
+|    |                        |              |              | danceability 0.82 vs target 0.88 (94% similar) (+0.47)         |
+|    |                        |              |              | matches your words: pop (+1.00)                                |
++----+------------------------+--------------+--------------+----------------------------------------------------------------+
+Summary:
+  1. Pulse Reactor: Top reasons: energy 0.95 vs target 0.85 (90% similar); related genre: edm; matches your words: dance.
+  2. Bubblegum Skies: Top reasons: energy 0.85 vs target 0.85 (100% similar); related genre: pop; mood tags party, carefree (2/3).
+  3. Rooftop Lights: Top reasons: energy 0.76 vs target 0.85 (91% similar); matches your words: pop; valence 0.81 vs target 0.8 (99% similar).
+
+Workflow trace:
+  1. validate     -> request accepted
+       query: "k-pop dance hits"
+       k: 3
+       mode: "balanced"
+       diversity: true
+  2. parse        -> found 1 explicit preference(s)
+       explicit: {"genre": "k-pop"}
+       exclude_genres: []
+       notes: ["'k-pop' -> genre k-pop (not in catalog)"]
+  3. retrieve     -> best context: party
+       contexts: [{"name": "party", "score": 0.2887, "matched": ["dance"]}]
+       top_song_matches: {"10": {"score": 1.0, "terms": ["pop"]}, "16": {"score": 0.86, "terms": ["dance"]}, "1": {"score": 0.58, "terms": ["pop"]}, "20": {"score": 0.58, "terms": ["pop"]}, "5": {"score": 0.58, "terms": ["pop"]}}
+  4. build_prefs  -> 5 preference(s) set
+       prefs: {"energy": 0.85, "danceability": 0.88, "valence": 0.8, "mood_tags": ["party", "euphoric", "carefree"], "related_genres": ["pop", "edm"]}
+       sources: {"energy": "context 'party'", "danceability": "context 'party'", "valence": "context 'party'", "mood_tags": "context 'party'", "related_genres": "genre notes for k-pop", "retrieval_scores": "song text search"}
+  5. constrain    -> no exclusions
+       exclude_genres: []
+       candidates: 20
+  6. rank         -> ranked 20 songs, kept top 3
+       top: [["Pulse Reactor", 4.86], ["Bubblegum Skies", 4.68], ["Rooftop Lights", 3.65]]
+  7. self_check   -> confidence 0.88 (medium)
+       top_score: 4.86
+       max_possible: 5.5
+       problems: []
+  8. explain      -> added a one-line summary to each recommendation
+```
+
+**Negated genre, excluded before ranking:**
+
+```text
+$ python -m src.app "no lofi, just chill jazz" -k 3 --trace
+Loaded 20 songs and 11 activity contexts.
+
+=== AI workflow (retrieval + self-check) ===
+Request    : no lofi, just chill jazz
+Context    : relax
+Using      : energy=0.38, valence=0.6, mood_tags=['calm', 'mellow', 'warm'], genre=jazz, mood=chill, related_genres=['r&b']
+Confidence : 0.76 (high)
++----+------------------------+--------------+--------------+----------------------------------------------------------------+
+| #  | Song                   | Genre / Mood | Score        | Why (points earned)                                            |
++====+========================+==============+==============+================================================================+
+| 1  | Coffee Shop Stories    | jazz         | 5.29         | genre match: jazz (+2.00)                                      |
+|    | by Slow Stereo         | relaxed      |              | mood tags mellow, warm (2/3) (+0.67)                           |
+|    |                        |              |              | energy 0.37 vs target 0.38 (99% similar) (+1.48)               |
+|    |                        |              |              | valence 0.71 vs target 0.6 (89% similar) (+0.45)               |
+|    |                        |              |              | matches your words: jazz (+0.69)                               |
++----+------------------------+--------------+--------------+----------------------------------------------------------------+
+| 2  | Spacewalk Thoughts     | ambient      | 3.51         | mood match: chill (+1.00)                                      |
+|    | by Orbit Bloom         | chill        |              | mood tags calm (1/3) (+0.33)                                   |
+|    |                        |              |              | energy 0.28 vs target 0.38 (90% similar) (+1.35)               |
+|    |                        |              |              | valence 0.65 vs target 0.6 (95% similar) (+0.47)               |
+|    |                        |              |              | matches your words: chill (+0.36)                              |
++----+------------------------+--------------+--------------+----------------------------------------------------------------+
+| 3  | Slow Honey             | r&b          | 3.46         | related genre: r&b (+1.00)                                     |
+|    | by Amber Lane          | romantic     |              | mood tags mellow, warm (2/3) (+0.67)                           |
+|    |                        |              |              | energy 0.5 vs target 0.38 (88% similar) (+1.32)                |
+|    |                        |              |              | valence 0.66 vs target 0.6 (94% similar) (+0.47)               |
++----+------------------------+--------------+--------------+----------------------------------------------------------------+
+Summary:
+  1. Coffee Shop Stories: Top reasons: genre match: jazz; energy 0.37 vs target 0.38 (99% similar); matches your words: jazz.
+  2. Spacewalk Thoughts: Top reasons: energy 0.28 vs target 0.38 (90% similar); mood match: chill; valence 0.65 vs target 0.6 (95% similar).
+  3. Slow Honey: Top reasons: energy 0.5 vs target 0.38 (88% similar); related genre: r&b; mood tags mellow, warm (2/3).
+
+Workflow trace:
+  1. validate     -> request accepted
+       query: "no lofi, just chill jazz"
+       k: 3
+       mode: "balanced"
+       diversity: true
+  2. parse        -> found 2 explicit preference(s)
+       explicit: {"genre": "jazz", "mood": "chill"}
+       exclude_genres: ["lofi"]
+       notes: ["'jazz' -> genre jazz", "'lofi' is negated -> exclude genre lofi", "'chill' -> mood chill"]
+  3. retrieve     -> best context: relax
+       contexts: [{"name": "relax", "score": 0.25, "matched": ["chill"]}]
+       top_song_matches: {"2": {"score": 1.0, "terms": ["chill", "lofi"]}, "4": {"score": 0.91, "terms": ["chill", "lofi"]}, "19": {"score": 0.86, "terms": ["chill", "lofi"]}, "7": {"score": 0.69, "terms": ["jazz"]}, "9": {"score": 0.43, "terms": ["lofi"]}}
+  4. build_prefs  -> 6 preference(s) set
+       prefs: {"energy": 0.38, "valence": 0.6, "mood_tags": ["calm", "mellow", "warm"], "genre": "jazz", "mood": "chill", "related_genres": ["r&b"]}
+       sources: {"energy": "context 'relax'", "valence": "context 'relax'", "mood_tags": "context 'relax'", "genre": "your words", "mood": "your words", "related_genres": "genre notes for jazz", "retrieval_scores": "song text search"}
+  5. constrain    -> removed 4 song(s) from excluded genres
+       exclude_genres: ["lofi"]
+       candidates: 16
+  6. rank         -> ranked 16 songs, kept top 3
+       top: [["Coffee Shop Stories", 5.29], ["Spacewalk Thoughts", 3.51], ["Slow Honey", 3.46]]
+  7. self_check   -> confidence 0.76 (high)
+       top_score: 5.29
+       max_possible: 7.0
+       problems: []
+  8. explain      -> added a one-line summary to each recommendation
+```
+
+---
+
+# Part 2: Module 3 log (original)
+
 This log describes the real workflow used to complete the project with an AI coding agent (**Claude Code**, running in VS Code). All of the work below happened in one agent conversation. Unless a line says otherwise, the code, tests, data and documentation were **generated by the agent**, and the checks listed were **run by the agent** (tests, program runs, scripts). Anything the student checked or decided personally should be added in the marked spot at the end.
 
 ---

@@ -12,7 +12,7 @@ My version adds:
 - A **summary table** that shows every point a song earned.
 - **7 test profiles** (3 normal listeners, 3 edge cases and the default), plus a weight-shift experiment.
 
-The evaluation, biases and reflection are in the [Model Card](model_card.md). The AI workflow is documented in [ai_interactions.md](ai_interactions.md).
+The evaluation, biases and reflection are in the [Model Card](model_card.md). The AI workflow is documented in [ai_interactions.md](../../ai_interactions.md).
 
 ---
 
