@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="560" height="300" font-family="Arial, sans-serif" font-size="12">
+<rect width="560" height="300" fill="#ffffff"/>
+<text x="280" y="22" text-anchor="middle" font-size="15" font-weight="bold">VibeMatch evaluation: cases passed</text>
+<line x1="60" y1="250" x2="540" y2="250" stroke="#444"/>
+<text x="52" y="254" text-anchor="end" fill="#555">0%</text>
+<line x1="60" y1="250" x2="540" y2="250" stroke="#ddd"/>
+<text x="52" y="154" text-anchor="end" fill="#555">50%</text>
+<line x1="60" y1="150" x2="540" y2="150" stroke="#ddd"/>
+<text x="52" y="54" text-anchor="end" fill="#555">100%</text>
+<line x1="60" y1="50" x2="540" y2="50" stroke="#ddd"/>
+<rect x="90" y="66.7" width="48" height="183.3" fill="#2f6fb0"/>
+<text x="114.0" y="60.7" text-anchor="middle">11/12</text>
+<rect x="144" y="150.0" width="48" height="100.0" fill="#c9852b"/>
+<text x="168.0" y="144.0" text-anchor="middle">6/12</text>
+<text x="138" y="268" text-anchor="middle">Quality</text>
+<rect x="250" y="50.0" width="48" height="200.0" fill="#2f6fb0"/>
+<text x="274.0" y="44.0" text-anchor="middle">5/5</text>
+<rect x="304" y="90.0" width="48" height="160.0" fill="#c9852b"/>
+<text x="328.0" y="84.0" text-anchor="middle">4/5</text>
+<text x="298" y="268" text-anchor="middle">Edge cases</text>
+<rect x="410" y="50.0" width="48" height="200.0" fill="#2f6fb0"/>
+<text x="434.0" y="44.0" text-anchor="middle">7/7</text>
+<text x="458" y="268" text-anchor="middle">Guardrails</text>
+<rect x="60" y="270" width="12" height="12" fill="#2f6fb0"/>
+<text x="78" y="281">AI workflow (retrieval + self-check)</text>
+<rect x="310" y="270" width="12" height="12" fill="#c9852b"/>
+<text x="328" y="281">Keyword-only baseline</text>
+</svg>
