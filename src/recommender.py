@@ -17,8 +17,11 @@ Main pieces:
 """
 
 import csv
+import logging
 from dataclasses import dataclass, field, asdict
 from typing import Dict, List, Optional, Tuple, Union
+
+logger = logging.getLogger("vibematch")
 
 
 # ---------------------------------------------------------------------------
@@ -124,6 +127,7 @@ SCORING_MODES: Dict[str, ScoringMode] = {
             "energy": 1.5, "valence": 0.5, "danceability": 0.5, "acousticness": 0.5,
             "instrumentalness": 0.5, "liveness": 0.25, "tempo_bpm": 0.5,
             "popularity": 0.25, "release_decade": 0.5,
+            "related_genre": 1.0, "retrieval": 1.0,
         },
     ),
     "genre-first": ScoringMode(
@@ -134,6 +138,7 @@ SCORING_MODES: Dict[str, ScoringMode] = {
             "energy": 0.75, "valence": 0.25, "danceability": 0.25, "acousticness": 0.25,
             "instrumentalness": 0.25, "liveness": 0.1, "tempo_bpm": 0.25,
             "popularity": 0.1, "release_decade": 0.25,
+            "related_genre": 2.0, "retrieval": 0.5,
         },
     ),
     "mood-first": ScoringMode(
@@ -144,6 +149,7 @@ SCORING_MODES: Dict[str, ScoringMode] = {
             "energy": 0.75, "valence": 1.0, "danceability": 0.25, "acousticness": 0.25,
             "instrumentalness": 0.25, "liveness": 0.1, "tempo_bpm": 0.25,
             "popularity": 0.1, "release_decade": 0.25,
+            "related_genre": 0.25, "retrieval": 1.0,
         },
     ),
     "energy-focused": ScoringMode(
@@ -155,6 +161,7 @@ SCORING_MODES: Dict[str, ScoringMode] = {
             "energy": 4.0, "valence": 0.25, "danceability": 1.0, "acousticness": 0.5,
             "instrumentalness": 0.25, "liveness": 0.25, "tempo_bpm": 1.0,
             "popularity": 0.1, "release_decade": 0.1,
+            "related_genre": 0.25, "retrieval": 0.5,
         },
     ),
 }
@@ -259,15 +266,21 @@ def load_songs(csv_path: str) -> List[Dict]:
             try:
                 song, warnings = _parse_row(row)
             except ValueError as error:
-                print(f"Warning: skipped line {line_number} of {csv_path}: {error}")
+                message = f"skipped line {line_number} of {csv_path}: {error}"
+                print(f"Warning: {message}")
+                logger.warning(message)
                 continue
             if song["id"] in seen_ids:
-                print(f"Warning: skipped line {line_number}: duplicate song id {song['id']}")
+                message = f"skipped line {line_number}: duplicate song id {song['id']}"
+                print(f"Warning: {message}")
+                logger.warning(message)
                 continue
             for warning in warnings:
                 print(f"Warning: line {line_number} ({song['title']}): {warning}")
+                logger.warning("line %s (%s): %s", line_number, song["title"], warning)
             seen_ids.add(song["id"])
             songs.append(song)
+    logger.info("loaded %d songs from %s", len(songs), csv_path)
     return songs
 
 
@@ -307,6 +320,10 @@ def score_song(user_prefs: Dict, song: Dict,
     # 1) Categorical matches: all-or-nothing points.
     if user_prefs.get("genre") and song.get("genre") and _same_text(user_prefs["genre"], song["genre"]):
         add(weights.get("genre", 0), f"genre match: {song['genre']}")
+    elif song.get("genre") and any(_same_text(g, song["genre"])
+                                   for g in user_prefs.get("related_genres") or []):
+        # Partial credit for a genre the knowledge base lists as related (e.g. rock -> metal).
+        add(weights.get("related_genre", 0), f"related genre: {song['genre']}")
     if user_prefs.get("mood") and song.get("mood") and _same_text(user_prefs["mood"], song["mood"]):
         add(weights.get("mood", 0), f"mood match: {song['mood']}")
 
@@ -341,7 +358,35 @@ def score_song(user_prefs: Dict, song: Dict,
         elif gap == 10:
             add(weights.get("release_decade", 0) * 0.5, f"from the {song_decade}s (next to {wanted_decade}s)")
 
+    # 5) Retrieval relevance (set by the AI workflow): how well the song's text
+    #    matches the user's own words, scaled 0-1 by the TF-IDF retriever.
+    relevance = (user_prefs.get("retrieval_scores") or {}).get(song.get("id"))
+    if relevance and relevance.get("score", 0) > 0:
+        terms = ", ".join(relevance.get("terms", [])) or "your request"
+        add(weights.get("retrieval", 0) * relevance["score"], f"matches your words: {terms}")
+
     return round(score, 2), reasons
+
+
+def max_possible_score(user_prefs: Dict, mode: Union[str, ScoringMode, None] = DEFAULT_MODE) -> float:
+    """Highest score any song could get for these preferences (used for confidence)."""
+    weights = get_mode(mode).weights
+    total = 0.0
+    if user_prefs.get("genre"):
+        total += weights.get("genre", 0)
+    elif user_prefs.get("related_genres"):
+        total += weights.get("related_genre", 0)
+    if user_prefs.get("mood"):
+        total += weights.get("mood", 0)
+    if user_prefs.get("mood_tags"):
+        total += weights.get("mood_tags", 0)
+    for feature in _numeric_targets(user_prefs):
+        total += weights.get(feature, 0)
+    if user_prefs.get("release_decade") is not None:
+        total += weights.get("release_decade", 0)
+    if user_prefs.get("retrieval_scores"):
+        total += weights.get("retrieval", 0)
+    return round(total, 2)
 
 
 # ---------------------------------------------------------------------------
